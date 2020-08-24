@@ -10,16 +10,16 @@ sns.set()
 sns.set_style("darkgrid")
 sns.set_context("paper")
 
-df = pd.read_csv("./from_truba/mof5_model_hdnnp_forces_1/log.csv")[["Time", "Train loss", "Validation loss"]]
+df = pd.read_csv("./mof5_model_hdnnp_forces_v4/log.csv")[["Time", "Train loss", "Validation loss"]]
 #df2 = data=pd.melt(df, "Time")
 #print(df2.head())
 
 #Validation loss
 def plot_losses():
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.set_ylim(0, 10)
+    #ax.set_ylim(0, 1)
     #line1, =  ax.plot(df["Train loss"], label="Train loss")
     #line2, =  ax.plot(df["Validation loss"], label= "Validation loss")
 

@@ -15,7 +15,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 model_dir = "mof5_model_hdnnp_forces_v4"  # directory that will be created for storing model
 #model_dir = "ethanol_model"  # directory that will be created for storing model
 os.makedirs(model_dir)
-properties = ["cohesive_E_perAtom", "forces"]  # properties used for training
+properties = ["cohesive_E_perAtom"]#, "forces"]  # properties used for training
 batch_size = 4
 
 # data preparation
@@ -73,10 +73,10 @@ def main():
             elements=frozenset((1, 6, 8, 30)),
             #elements=frozenset((1, 6, 8)),
             property=properties[0],
-            derivative="forces",
+            #derivative="forces",
             mean=means[properties[0]],
             stddev=stddevs[properties[0]],
-            negative_dr=True,
+            #negative_dr=True,
         )
     ]
 
@@ -92,8 +92,8 @@ def main():
     hooks = [CSVHook(log_path=model_dir, metrics=metrics), ReduceLROnPlateauHook(optimizer)]
 
     # trainer
-    loss = build_mse_loss(properties, loss_tradeoff=[0.01, 0.99])# for ["energy", "force"]
-    #loss = build_mse_loss(properties, loss_tradeoff=[0.01]) # for ["energy"]
+    #loss = build_mse_loss(properties, loss_tradeoff=[0.01, 0.99])# for ["energy", "force"]
+    loss = build_mse_loss(properties, loss_tradeoff=[0.01]) # for ["energy"]
     trainer = Trainer(
         model_dir,
         model=model,
@@ -107,6 +107,6 @@ def main():
     # run training
     logging.info("training")
     #trainer.train(device="cuda", n_epochs=1000)
-    trainer.train(device="cuda", n_epochs=100)
+    trainer.train(device="cuda", n_epochs=10)
 
 main()

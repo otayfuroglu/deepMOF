@@ -23,10 +23,13 @@ index_warning = 'Converting sparse IndexedSlices'
 warnings.filterwarnings('ignore', index_warning)
 
 # path definitions
-model_schnet = load_model("./from_truba/mof5_model_hdnnp_forces/best_model")
+model_schnet = load_model("./non_equ_geom_energy_forces_withORCA_v4.db/best_model")
 #model_schnet = load_model("./ethanol_model/best_model")
-properties = ["energy", ]#cohesive_E_perAtom"]#, "forces"]  # properties used for training
-calc_schnet = SpkCalculator(model_schnet, device="cuda", energy=properties[0], forces="forces", collect_triples=True)
+properties = ["cohesive_E_perAtom"]#, "forces"]  # properties used for training
+calc_schnet = SpkCalculator(model_schnet, device="cuda",
+                            energy=properties[0],
+                             # forces="forces",
+                            collect_triples=True)
 calc_dft4 = D4_model(xc='pbe0')
 
 def calc_opt(atoms, calc_tor):
@@ -68,10 +71,10 @@ def main():
         #))
         if i == 100:
             break
-        df_data = pd.DataFrame()
-        df_data["QM_opt_E"] = qm_opt_energies
-        df_data["Scnetpcak_opt_E"] = sch_opt_energies
-        df_data.to_csv("qm_sch_opt_energies.csv")
+    df_data = pd.DataFrame()
+    df_data["QM_opt_E"] = qm_opt_energies
+    df_data["Scnetpcak_opt_E"] = sch_opt_energies
+    df_data.to_csv("qm_sch_opt_energies.csv")
 
 def plot_linear_reg():
     df_data = pd.read_csv("./qm_sch_opt_energies.csv")
