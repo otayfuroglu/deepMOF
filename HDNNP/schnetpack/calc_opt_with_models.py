@@ -92,4 +92,4 @@ def plot_linear_reg():
     #plt.savefig("%s_QM_E.png"%keyword)
 
 main()
-#plot_linear_reg()
+plot_linear_reg()
