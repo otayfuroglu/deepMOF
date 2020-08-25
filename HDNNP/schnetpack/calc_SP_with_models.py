@@ -37,33 +37,41 @@ path_to_db = "../prepare_data/non_equ_geom_energy_coh_energy_forces_withORCA_v4.
 data = AtomsData(path_to_db)
 
 column_names = ["qm_SP_energies", "schnet_SP_energies"]
-csv_file_name = "qm_sch_SP_energies"
+csv_file_name = "qm_sch_SP_energies.csv"
 
-SP_energies = []
-schnet_SP_energies = []
-for i in range(len(data)):
-    #row_for_schnet = atoms.toatoms()
-    mol = data.get_atoms(i)
-    mol.set_calculator(calc_schnet)
+def main():
+    file_names = []
+    SP_energies = []
+    schnet_SP_energies = []
+    for i in range(len(data)):
+        #row_for_schnet = atoms.toatoms()
+        file_names += [data.get_name(i)]
+        mol = data.get_atoms(i)
+        mol.set_calculator(calc_schnet)
 
-    coh_E = float(data[i][properties[0]][0])
-    coh_schnet_E = float(mol.get_potential_energy()[0])
-    
-    SP_energies.append(coh_E)
-    schnet_SP_energies.append(coh_schnet_E)
+        coh_E = float(data[i][properties[0]][0])
+        coh_schnet_E = float(mol.get_potential_energy()[0])
 
-    if i == 0:
-        print("{0:10}{1}\n".format("energy", "predict_schnet"))
-    print("{:.5f}: {:.5f}".format(coh_E, coh_schnet_E))
-    if i == 10000:
-        break
+        SP_energies += [coh_E]
+        schnet_SP_energies += [coh_schnet_E]
+        print(i)
+        #if i == 0:
+        #    print("{0:10}{1}\n".format("energy", "predict_schnet"))
+        #print("{:.5f}: {:.5f}".format(coh_E, coh_schnet_E))
+        #if i == 10:
+        #    break
 
-df_data = pd.DataFrame()
-df_data[column_names[0]] = SP_energies
-df_data[column_names[1]] = schnet_SP_energies
+    df_data = pd.DataFrame()
+    df_data["FileNames"] = file_names
+    df_data[column_names[0]] = SP_energies
+    df_data[column_names[1]] = schnet_SP_energies
+    df_data["Error"] = SP_energies - schnet_SP_energies
+    df_data.to_csv(csv_file_name)
+
+#main()
+df_data = pd.read_csv(csv_file_name)
+df_data["Error"] = np.array(df_data[column_names[0]]) - np.array(df_data[column_names[1]])
 df_data.to_csv(csv_file_name)
-
-
 
 def plot_linear_reg():
     df_data = pd.read_csv(csv_file_name)
@@ -79,4 +87,4 @@ def plot_linear_reg():
     plt.text(-2, -3.5, "R^2=%.2f"%linreg.rvalue)
     plt.show()
     #plt.savefig("%s_QM_E.png"%keyword)
-plot_linear_reg()
+#plot_linear_reg()
