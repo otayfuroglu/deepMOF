@@ -18,6 +18,10 @@ For a parallel calculation, it is important to use the same seed on all processo
 
 file_path = "fragments"
 non_equ_geom_xyz_path = "non_equ_geom_xyz_files"
+try:
+    os.mkdir(non_equ_geom_xyz_path)
+except:
+    print("%s folder is exist" %non_equ_geom_xyz_path)
 file_bases = ["mof5_f1", "mof5_f2", "mof5_f3", "mof5_f4", "mof5_f5"]
 
 def scale_atoms_distence(atoms, scale_factor):
