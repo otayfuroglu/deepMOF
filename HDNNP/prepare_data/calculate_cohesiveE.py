@@ -49,25 +49,40 @@ def caculate_data():
                            "cohesive_E_perAtom",
                            "forces"
                        ])
-    db = connect("./non_equ_geom_energy_forces_withORCA_v4.db").select()
     free_HCOZn_energies = calc_free_atom_energy()
-    for i, row in enumerate(db):
-        print(i)
-        file_base = row["name"]
-        mol = row.toatoms()
-        total_E = row["energy"]
-        total_E = np.array([total_E], dtype=np.float32)
 
-        forces = row["forces"]
-        forces = np.array(forces, dtype=np.float32)
+    property_list = []
+    atoms_list = []
+    name_list = []
 
-        cohesive_E_perAtom = calc_cohesive_E(mol, total_E, free_HCOZn_energies)
-        cohesive_E_perAtom = np.array(cohesive_E_perAtom, dtype=np.float32)
+    db1 = connect("./non_equ_geom_energy_forces_withORCA_v4_2.db").select()
+    db2 = connect("./non_equ_geom_energy_forces_withORCA_v4_2.db").select()
+    for db in [db1, db2]:
+        for i, row in enumerate(db):
+            if i % 100 == 0:
+                print(i)
+            file_base = row["name"]
+            mol = row.toatoms()
+            total_E = row["energy"]
+            total_E = np.array([total_E], dtype=np.float32)
 
-        new_db.add_system(mol, file_base, total_E=total_E, cohesive_E_perAtom=cohesive_E_perAtom, forces=forces)
+            forces = row["forces"]
+            forces = np.array(forces, dtype=np.float32)
+
+            cohesive_E_perAtom = calc_cohesive_E(mol, total_E, free_HCOZn_energies)
+            cohesive_E_perAtom = np.array(cohesive_E_perAtom, dtype=np.float32)
+
+            atoms_list.append(mol)
+            name_list.append(file_base)
+            property_list.append({"total_E": total_E,
+                                 "forces": forces,
+                                 "cohesive_E_perAtom": cohesive_E_perAtom,
+                                })
+
+    new_db.add_systems(atoms_list, name_list, property_list)
 
 def get_data_from_csv():
-    new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4_2.db",
+    new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4_1.db",
                        available_properties=[
                            "total_E",
                            "cohesive_E_perAtom",
@@ -86,7 +101,7 @@ def get_data_from_csv():
         mol = db.get_atoms(i)
         total_E = row["total_E"]
         total_E = np.array([total_E], dtype=np.float32)
-        
+
         forces = db[i]["forces"]
         forces = np.array(forces, dtype=np.float32)
         cohesive_E_perAtom = row["cohesive_E_perAtom"]
@@ -106,12 +121,12 @@ def ase_db_to_csv():
         df[label] = [float(db[i][label]) for i in range(len(db))]
     df.to_csv("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.csv")
 
-#caculate_data()
+caculate_data()
 #get_data_from_csv()
-ase_db_to_csv()
+#ase_db_to_csv()
 
-#new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db")
-##print(new_db[0]["forces"])
+new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db")
+print(len(new_db))
 ##new_db = connect("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db").select()
 #for i in range(len(new_db)):
 #    print(new_db[i]["total_E"])
