@@ -3,6 +3,10 @@ from ase.db import connect
 from ase.calculators.orca import ORCA
 from ase import Atoms
 
+import torch
+from schnetpack.datasets import AtomsData
+import schnetpack as spk
+
 from schnetpack import AtomsData
 import os
 from dftd4 import D4_model
@@ -55,7 +59,7 @@ def caculate_data():
     atoms_list = []
     name_list = []
 
-    db1 = connect("./non_equ_geom_energy_forces_withORCA_v4_2.db").select()
+    db1 = connect("./non_equ_geom_energy_forces_withORCA_v4_1.db").select()
     db2 = connect("./non_equ_geom_energy_forces_withORCA_v4_2.db").select()
     for db in [db1, db2]:
         for i, row in enumerate(db):
@@ -121,12 +125,88 @@ def ase_db_to_csv():
         df[label] = [float(db[i][label]) for i in range(len(db))]
     df.to_csv("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.csv")
 
-caculate_data()
+def get_fragment_data(db, properties, fragment_keyword):
+    property_list = []
+    atoms_list = []
+    name_list = []
+    for i in range(len(db)):
+        if i % 100 == 0:
+            print(i)
+            file_base = db.get_name(i)
+        #properties = ["total_E", "forces", "cohesive_E_perAtom"]
+        if fragment_keyword in file_base:
+            property_values = []
+            for propert in properties:
+
+                mol = db.get_atoms(i)
+                target_propert = db[i][propert]
+                target_propert = np.array(target_propert, dtype=np.float32)
+                property_values.append(target_propert)
+
+            #combine two lists into a dictionary 
+            property_dict = dict(zip(properties, property_values))
+            atoms_list.append(mol)
+            name_list.append(file_base)
+            property_list.append(property_dict)
+
+    return atoms_list, name_list, property_list
+
+
+def run_get_fragment_data():
+
+    db = AtomsData("../prepare_data/non_equ_geom_energy_forces_withORCA_new.db")
+    new_db_path = "../prepare_data/non_equ_geom_energy_forces_withORCA_new_f1.db"
+    if os.path.exists(new_db_path):
+        os.remove(new_db_path)
+
+    atoms, properties = db.get_properties(0)
+    properties = [propert for propert in properties.keys() if "_" not in propert]
+    new_db = AtomsData(new_db_path,
+                       available_properties=properties
+                      )
+
+    for fragment_keyword in ["mof5_new_f1",]:# "mof5_new_f2", "mof5_new_f3"]:
+        atoms_list, name_list, property_list = get_fragment_data(db, properties, fragment_keyword)
+        new_db.add_systems(atoms_list, name_list, property_list)
+
+def statics_data(dataset, data_dir):
+    print(data_dir)
+    atoms, properties = dataset.get_properties(0)
+    properties = list(properties.keys())
+    forcetut=data_dir
+    os.mkdir(data_dir)
+    train, val, test = spk.train_test_split(
+                data=dataset,
+                num_train=4400,
+                num_val=5,
+                split_file=os.path.join(forcetut, "split.npz"),
+            )
+    train_loader = spk.AtomsLoader(train, batch_size=12, shuffle=True, num_workers=8)
+    val_loader = spk.AtomsLoader(val, batch_size=4)
+
+    means, stddevs = train_loader.get_statistics(
+        properties[0],
+        divide_by_atoms=True,
+    )
+
+    print('Mean atomization energy / atom:      {:12.4f} [kcal/mol]'.format(means[properties[0]][0]))
+    print('Std. dev. atomization energy / atom: {:12.4f} [kcal/mol]'.format(stddevs[properties[0]][0]))
+
+#run_get_fragment_data()
+
+#caculate_data()
 #get_data_from_csv()
 #ase_db_to_csv()
 
-new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db")
-print(len(new_db))
+dataset = AtomsData("non_equ_geom_energy_forces_withORCA_new_f1.db",
+                    #available_properties=properties,
+                    #load_only=properties,
+                    collect_triples=True)
+print(len(dataset))
+statics_data(dataset, "mof5_new_f1")
+#
+#new_db = AtomsData("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db")
+#print(len(new_db))
 ##new_db = connect("./non_equ_geom_energy_coh_energy_forces_withORCA_v4.db").select()
 #for i in range(len(new_db)):
 #    print(new_db[i]["total_E"])
