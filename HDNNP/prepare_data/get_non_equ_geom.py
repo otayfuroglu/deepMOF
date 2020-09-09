@@ -16,13 +16,15 @@ from a normal distribution of standard deviation stdev.
 For a parallel calculation, it is important to use the same seed on all processors!
 """
 
-file_path = "fragments"
-non_equ_geom_xyz_path = "non_equ_geom_xyz_files"
-try:
+file_path = "./mof_fragments"
+non_equ_geom_xyz_path = "non_equ_geom_xyz_files_non_scaled"
+if not os.path.exists(non_equ_geom_xyz_path):
     os.mkdir(non_equ_geom_xyz_path)
-except:
-    print("%s folder is exist" %non_equ_geom_xyz_path)
+
 file_bases = ["mof5_f1", "mof5_f2", "mof5_f3", "mof5_f4", "mof5_f5"]
+#file_bases = ["mof5_new_f2", "mof5_new_f3", "mof5_new_f4", "mof5_new_f5", "mof5_new_f6"]
+#file_bases = ["mof5_new_single", ]
+scaled=False
 
 def scale_atoms_distence(atoms, scale_factor):
     atoms = atoms.copy()
@@ -53,25 +55,35 @@ def displaced_atomic_positions(atom_positions):
             return n_atom_positions
 
 def get_non_equ_geo(i, file_name):
-    atoms = read("%s/%s" %(non_equ_geom_xyz_path, file_name))
+    if scaled:
+        atoms = read("%s/%s" %(non_equ_geom_xyz_path, file_name))
+    else:
+        atoms = read("%s/%s" %(file_path, file_name))
+
     for atom in atoms:
         atom.position = displaced_atomic_positions(atom.position)
     write("{}/{}_{}.xyz".format(non_equ_geom_xyz_path, file_name.replace(".xyz",""), i), atoms)
 
 def main(n_proc):
     #file_bases = ["test0"]
-    for file_base in file_bases:
-        atoms = read("%s/%s.xyz" %(file_path, file_base))
 
-        scale_range = (0.96, 1.10)
-        scale_step = 0.01
-        for i, scale_factor in enumerate(np.arange(scale_range[0], scale_range[1], scale_step)):
-            scaled_atoms = scale_atoms_distence(atoms, scale_factor)
-            write("{}/{}_{}.xyz".format(non_equ_geom_xyz_path, file_base, i), scaled_atoms)
+    if scaled:
+        for file_base in file_bases:
+            atoms = read("%s/%s.xyz" %(file_path, file_base))
 
-    file_names = os.listdir(non_equ_geom_xyz_path)
+            scale_range = (0.96, 1.10)
+            scale_step = 0.01
+            for i, scale_factor in enumerate(np.arange(scale_range[0], scale_range[1], scale_step)):
+                scaled_atoms = scale_atoms_distence(atoms, scale_factor)
+                write("{}/{}_{}.xyz".format(non_equ_geom_xyz_path, file_base, i), scaled_atoms)
+
+        file_names = os.listdir(non_equ_geom_xyz_path)
+    else:
+        print("Don't apply scale procedure")
+        file_names = os.listdir(file_path)
+
     with Pool(n_proc) as pool:
-        pool.starmap(get_non_equ_geo, product(range(200), file_names))
+        pool.starmap(get_non_equ_geo, product(range(1000), file_names))
 
 main(8)
 
