@@ -9,25 +9,34 @@ from schnetpack.train.metrics import MeanAbsoluteError
 from schnetpack.train import build_mse_loss
 from schnetpack.datasets import *
 
+import torch
+print("Number of cuda devices -->", torch.cuda.device_count())
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("device type -->", device)
+
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 # basic settings
-model_dir = "./mof5_model_hdnnp_forces_mof5_f1_test"  # directory that will be created for storing model
+model_dir = "./mof5_model_hdnnp_forces_mof5_single"  # directory that will be created for storing model
 
 if os.path.exists(model_dir):
     print("Warning: model will be restored from checkpiont! Are you sure?")
 else:
     os.makedirs(model_dir)
 
-properties = ["total_E", "forces"]  # properties used for training
+#properties = ["energy", "forces"]  # properties used for training
 batch_size = 4
 
 # data preparation
 logging.info("get dataset")
-dataset = AtomsData("../prepare_data/non_equ_geom_energy_coh_energy_forces_withORCA_mof5_f1.db",
-                    #vailable_properties=properties,
+dataset = AtomsData("../prepare_data/non_equ_geom_energy_forces_withORCA_single.db",
+                    #available_properties=properties,
                     #load_only=properties,
                     collect_triples=True)
+
+_, properties = dataset.get_properties(0)
+properties = [item for item in properties.keys() if not "_" in item]
+print("availavle properties -->", properties)
 
 n_sample = len(dataset) / 6
 print("Number of sample: ", n_sample)
@@ -39,8 +48,8 @@ def main():
         num_val=int(n_sample * 0.1),
         split_file=os.path.join(model_dir, "split.npz"),
     )
-    train_loader = spk.AtomsLoader(train, batch_size=batch_size, shuffle=True, num_workers=6)
-    val_loader = spk.AtomsLoader(val, batch_size=batch_size)
+    train_loader = spk.AtomsLoader(train, batch_size=batch_size, shuffle=True, num_workers=batch_size)
+    val_loader = spk.AtomsLoader(val, batch_size=batch_size, num_workers=batch_size)
 
     # get statistics
     atomrefs = dataset.get_atomref(properties[0])
@@ -86,7 +95,7 @@ def main():
     #model = spk.AtomisticModel(representation=representation, output_modules=output_modules)
 
     # build optimizer
-    optimizer = Adam(params=model.parameters(), lr=1e-2)
+    optimizer = Adam(params=model.parameters(), lr=1e-3)
 
     # hooks
     logging.info("build trainer")
@@ -101,7 +110,7 @@ def main():
                  stop_after_min=False)]
 
     # trainer
-    loss = build_mse_loss(properties, loss_tradeoff=[0.01, 0.99])# for ["energy", "force"]
+    loss = build_mse_loss(properties, loss_tradeoff=[0.001, 0.99])# for ["energy", "force"]
     #loss = build_mse_loss(properties, loss_tradeoff=[0.1]) # for ["energy"]
     trainer = Trainer(
         model_dir,
@@ -115,6 +124,6 @@ def main():
 
     # run training
     logging.info("training")
-    trainer.train(device="cuda", n_epochs=200)
+    trainer.train(device=device, n_epochs=200)
 
 main()
