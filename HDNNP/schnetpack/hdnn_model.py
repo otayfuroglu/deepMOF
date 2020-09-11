@@ -10,6 +10,9 @@ from schnetpack.train import build_mse_loss
 from schnetpack.datasets import *
 
 import torch
+
+import get_atomrefs
+
 print("Number of cuda devices -->", torch.cuda.device_count())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("device type -->", device)
@@ -17,7 +20,7 @@ print("device type -->", device)
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 # basic settings
-model_dir = "./mof5_model_hdnnp_forces_mof5_single"  # directory that will be created for storing model
+model_dir = "./mof5_model_hdnnp_forces_SVPD_test"  # directory that will be created for storing model
 
 if os.path.exists(model_dir):
     print("Warning: model will be restored from checkpiont! Are you sure?")
@@ -25,18 +28,19 @@ else:
     os.makedirs(model_dir)
 
 #properties = ["energy", "forces"]  # properties used for training
-batch_size = 4
+batch_size = 8
 
 # data preparation
 logging.info("get dataset")
-dataset = AtomsData("../prepare_data/non_equ_geom_energy_forces_withORCA_single.db",
+dataset = AtomsData("../prepare_data/non_equ_geom_energy_forces_withORCA_SVPD.db",
                     #available_properties=properties,
                     #load_only=properties,
                     collect_triples=True)
 
 _, properties = dataset.get_properties(0)
-properties = [item for item in properties.keys() if not "_" in item]
-print("availavle properties -->", properties)
+properties = [item for item in properties.keys() if "_" != item[0]]
+#del properties[1]
+print("available properties -->", properties)
 
 n_sample = len(dataset) / 6
 print("Number of sample: ", n_sample)
@@ -48,31 +52,31 @@ def main():
         num_val=int(n_sample * 0.1),
         split_file=os.path.join(model_dir, "split.npz"),
     )
-    train_loader = spk.AtomsLoader(train, batch_size=batch_size, shuffle=True, num_workers=batch_size)
-    val_loader = spk.AtomsLoader(val, batch_size=batch_size, num_workers=batch_size)
+    train_loader = spk.AtomsLoader(train, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_loader = spk.AtomsLoader(val, batch_size=batch_size, num_workers=4)
 
     # get statistics
-    atomrefs = dataset.get_atomref(properties[0])
+    atomrefs = get_atomrefs.atomrefs_energy0(properties[0])
     #per_atom = dict(energy=True, forces=False)
     #per_atom = dict(energy=True)
     per_atom = {properties[0]: True}
     means, stddevs = train_loader.get_statistics(
         [properties[0]],
         single_atom_ref=atomrefs,
-        #divide_by_atoms=per_atom,
-        divide_by_atoms=True,
+        divide_by_atoms=per_atom,
+        #divide_by_atoms=True,
     )
 
     # model build
     logging.info("build model")
-    representation = spk.representation.BehlerSFBlock(n_radial=5,
-                                                      n_angular=3,
+    representation = spk.representation.BehlerSFBlock(n_radial=22,
+                                                      n_angular=5,
                                                       zetas={1},
                                                       cutoff_radius=6.0,
                                                       elements=frozenset((1, 6, 8, 30)),
                                                       centered=False,
                                                       crossterms=False,
-                                                      mode="Behler", # "weighted" for wACSF "Behler" for ACSF
+                                                      mode="weighted", # "weighted" for wACSF "Behler" for ACSF
                                                      )
 
     output_modules = [
@@ -87,6 +91,7 @@ def main():
             derivative="forces",
             mean=means[properties[0]],
             stddev=stddevs[properties[0]],
+            atomref=atomrefs[properties[0]],
             negative_dr=True,
         )
     ]
@@ -95,7 +100,7 @@ def main():
     #model = spk.AtomisticModel(representation=representation, output_modules=output_modules)
 
     # build optimizer
-    optimizer = Adam(params=model.parameters(), lr=1e-3)
+    optimizer = Adam(params=model.parameters(), lr=1e-2)
 
     # hooks
     logging.info("build trainer")
