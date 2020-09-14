@@ -19,6 +19,15 @@ from schnetpack.interfaces import SpkCalculator
 from ase.io.xyz import read_xyz,  write_xyz
 from ase.io import read
 from ase.optimize import BFGS, LBFGS, GPMin, QuasiNewton
+from ase.io.trajectory import Trajectory
+from ase.io.xyz import read_xyz, write_xyz
+from ase.md import VelocityVerlet, Langevin, MDLogger
+from ase.md.velocitydistribution import (
+    MaxwellBoltzmannDistribution,
+    Stationary,
+    ZeroRotation,
+)
+from ase import units
 
 import os
 
@@ -93,6 +102,73 @@ class AseCalculations(object):
                                )
         optimezer.run(fmax, steps)
         self.save_molecule(name)
+
+    def _init_velocities(
+        self,
+        temp_init=300,
+        remove_translation=True,
+        remove_rotation=True,
+    ):
+        """
+        Initialize velocities for MD
+        """
+        MaxwellBoltzmannDistribution(self.molecule, temp_init * units.kB)
+        if remove_translation:
+            Stationary(self.molecule)
+            if remove_rotation:
+                ZeroRotation(self.molecule)
+
+    def init_md(
+        self,
+        name,
+        time_step=0.5,
+        temp_init=300,
+        temp_bath=None,
+        reset=False,
+        interval=1,
+    ):
+
+        # If a previous dynamics run has been performed, don't reinitialize
+        # velocities unless explicitly requested via restart=True
+        if not self.dynamics or reset:
+            self._init_velocities(temp_init=temp_init)
+
+        #setup dynamics
+        if temp_bath is None:
+            self.dynamics = VelocityVerlet(self.molecule, time_step * units.fs)
+        else:
+            self.Langevin(
+                self.molecule,
+                time_step * units.fs,
+                temp_bath * units * kB,
+                1.0 / (100.0 * units.fs),
+            )
+
+        # Create monitors for logfile and traj file
+        logfile = os.path.join(self.working_dir, "%s.log" % name)
+        trajfile = os.path.join(self.working_dir, "%s.traj" % name)
+        logger = MDLogger(
+            self.dynamics,
+            self.molecule,
+            logfile,
+            stress=False,
+            peratom=False,
+            header=True,
+            mode="a",
+        )
+        trajectory = Trajectory(trajfile, "w", self.molecule)
+
+        # Attach motiors to trajectory
+        self.dynamics.attach(logger, interval=interval)
+        self.dynamics.attach(trajectory.write, interval=interval)
+
+    def run_md(self, steps):
+        if not self.dynamics:
+            raise AttributeError(
+                "Dynamics need to be initialize using the setup_md function"
+            )
+        self.dynamics.run(steps)
+
     def print_calc(self):
         print(self.molecule.get_potential_energy())
 
