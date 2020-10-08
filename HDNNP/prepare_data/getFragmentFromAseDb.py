@@ -12,31 +12,37 @@ import sys
 
 def getFragmentFromAseDb(dbDIR, dbBASE, nFragment):
 
-    db = connect("%s/%s.db" %(dbDIR, dbBASE))
-    nRows = db.count()
-    db = db.select() # db to rows
-
     fragNames = [fragBase+str(i) for i in range(1, nFragment+1)]
+    for loopCounter, fragName in enumerate(fragNames):
+        db = connect("%s/%s.db" %(dbDIR, dbBASE))
+        nRows = db.count()
+        db = db.select() # db to rows
 
-    i = 0
-    for row in tqdm(db, file=sys.stdout, total=nRows):
-        atoms = row.toatoms()
-        file_base = row["name"]
-        #properties = ["total_E", "forces", "cohesive_E_perAtom"]
-        if file_base[:len(fragBase)+1] in  fragNames:
-            new_db_path = "%s/%s_%s.db" %(dbDIR, dbBASE, file_base[:len(fragBase)+1])
-            new_db = AtomsData(new_db_path,
-                               available_properties=["energy", "forces"]
-                              )
+        new_db_path = "%s/%s_%s.db" %(dbDIR, dbBASE, fragName)
+        new_db = AtomsData(new_db_path,
+                           available_properties=["energy", "forces"]
+                          )
+        names = []
+        mols = []
+        property_list = []
+        i = 0
+        for row in tqdm(db, file=sys.stdout, desc=fragName, total=nRows):
+            file_base = row["name"]
+            if fragName in file_base:
+                atoms = row.toatoms()
+                mols.append(atoms)
+                names.append(file_base)
 
-            energy = row["energy"]
-            energy = np.array([energy], dtype=np.float32)
+                energy = row["energy"]
+                energy = np.array([energy], dtype=np.float32)
 
-            forces = row["forces"]
-            forces = np.array(forces, dtype=np.float32)
+                forces = row["forces"]
+                forces = np.array(forces, dtype=np.float32)
 
-            new_db.add_system(atoms, file_base, energy=energy, forces=forces)
-
+                property_list.append({"energy": energy,
+                                     "forces": forces,
+                                })
+        new_db.add_systems(mols, names, property_list)
 
 
 if __name__ == "__main__":
