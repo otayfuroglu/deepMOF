@@ -29,8 +29,8 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 # basic settings
 BASE_DIR ="/home/modellab/workspace/omer/deepMOF/HDNNP"
-model_dir = "%s/schnetpack/mof5_model_hdnnp_forces_SVPD_test4" %BASE_DIR # directory that will be created for storing model
-data_dir = "%s/prepare_data/non_equ_geom_energy_forces_withORCA_SVPD.db" %BASE_DIR
+model_dir = "%s/schnetpack/mof5WithForcesSVPDFromMD" %BASE_DIR # directory that will be created for storing model
+data_dir = "%s/prepare_data/nonEquGeometriesEnergyForcesWithORCAFromMD.db" %BASE_DIR
 
 if os.path.exists(model_dir):
     print("Warning: model will be restored from checkpiont! Are you sure?")
@@ -42,21 +42,21 @@ logging.info("get dataset")
 dataset = AtomsData(data_dir,
                     #available_properties=properties,
                     #load_only=properties,
-                    collect_triples=True)
+                    collect_triples=True
+                   )
 
 _, properties = dataset.get_properties(0)
 properties = [item for item in properties.keys() if "_" != item[0]]
 #del properties[1]
-#print("available properties -->", properties)
+print("available properties -->", properties)
 
-n_sample = len(dataset) / 20
-#print("Number of sample: ", n_sample)
+n_sample = len(dataset) #/ 20
+print("Number of sample: ", n_sample)
 #properties = ["energy", "forces"]  # properties used for training
 #batch_size = 2
 
 
 def run_train(config):
-
 
     train, val, test = spk.train_test_split(
         data=dataset,
@@ -141,7 +141,7 @@ def run_train(config):
 
     # run training
     logging.info("training")
-    trainer.train(device=device, n_epochs=10)
+    trainer.train(device=device, n_epochs=50)
 
 run_train({'n_layers': 2, 'n_hidden': 50, 'lr': 0.001, 'batch_size': 1})
 
