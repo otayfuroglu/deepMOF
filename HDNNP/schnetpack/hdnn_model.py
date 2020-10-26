@@ -1,3 +1,4 @@
+#! /truba/home/otayfuroglu/miniconda3/bin/python
 import os
 import logging
 from torch.optim import Adam
@@ -5,7 +6,7 @@ import schnetpack as spk
 import schnetpack.atomistic.model
 
 from schnetpack.train import Trainer, CSVHook, ReduceLROnPlateauHook
-from schnetpack.train.metrics import MeanAbsoluteError
+from schnetpack.train.metrics import MeanAbsoluteError, RootMeanSquaredError
 from schnetpack.train import build_mse_loss
 from schnetpack.datasets import *
 
@@ -18,54 +19,69 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 
+from datetime import datetime
+
 import warnings
 warnings.filterwarnings("ignore")
 
-print("Number of cuda devices -->", torch.cuda.device_count())
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("device type -->", device)
-
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
 # basic settings
-BASE_DIR ="/home/modellab/workspace/omer/deepMOF/HDNNP"
-model_dir = "%s/schnetpack/mof5WithForcesSVPDFromMD" %BASE_DIR # directory that will be created for storing model
-data_dir = "%s/prepare_data/nonEquGeometriesEnergyForcesWithORCAFromMD.db" %BASE_DIR
+BASE_DIR = "/truba_scratch/otayfuroglu/deepMOF/HDNNP"
 
-if os.path.exists(model_dir):
-    print("Warning: model will be restored from checkpiont! Are you sure?")
+trainingName = "hdnnWeighted_l3n50_rho01_batch2"
+MODEL_DIR = os.path.join(os.getcwd(), trainingName)
+DATA_DIR = "%s/prepare_data/nonEquGeometriesEnergyForcesWithORCAFromMD.db" %BASE_DIR
+
+# logging to logFile
+logFile = "%s.log" %trainingName
+if os.path.exists(logFile):
+    os.remove(logFile)
+logging.basicConfig(filename=logFile,
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=os.environ.get("LOGLEVEL", "INFO"))
+
+if os.path.exists(MODEL_DIR):
+    logging.info("Warning: model will be restored from checkpiont in the %s directory! Are you sure?" %MODEL_DIR)
 else:
-    os.makedirs(model_dir)
+    os.makedirs(MODEL_DIR)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+logging.info("Job started %s" %(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+logging.info("device type --> %s" %device)
+n_gpus = torch.cuda.device_count()
+logging.info("Number of cuda devices --> %s" %n_gpus,)
 
 # data preparation
 logging.info("get dataset")
-dataset = AtomsData(data_dir,
+dataset = AtomsData(DATA_DIR,
                     #available_properties=properties,
                     #load_only=properties,
-                    collect_triples=True
-                   )
+                    collect_triples=True)
 
 _, properties = dataset.get_properties(0)
 properties = [item for item in properties.keys() if "_" != item[0]]
 #del properties[1]
-print("available properties -->", properties)
+logging.info("available properties --> %s" %properties)
 
-n_sample = len(dataset) #/ 20
-print("Number of sample: ", n_sample)
+n_sample = len(dataset)
+logging.info("Number of sample: %s" %n_sample)  
 #properties = ["energy", "forces"]  # properties used for training
 #batch_size = 2
 
 
-def run_train(config):
+def run_train(config,  checkpoint_dir=None):
+
 
     train, val, test = spk.train_test_split(
         data=dataset,
         num_train=int(n_sample * 0.9),
         num_val=int(n_sample * 0.1),
-        split_file=os.path.join(model_dir, "split.npz"),
+        split_file=os.path.join(MODEL_DIR, "split.npz"),
     )
-    train_loader = spk.AtomsLoader(train, batch_size=config["batch_size"], shuffle=True, num_workers=4)
-    val_loader = spk.AtomsLoader(val, batch_size=config["batch_size"], num_workers=4)
+    train_loader = spk.AtomsLoader(train, batch_size=config["batch_size"], shuffle=True, num_workers=20)
+    val_loader = spk.AtomsLoader(val, batch_size=config["batch_size"], num_workers=20)
 
     # get statistics
     atomrefs = get_atomrefs.atomrefs_energy0(properties[0])
@@ -84,7 +100,7 @@ def run_train(config):
     representation = spk.representation.BehlerSFBlock(n_radial=22,
                                                       n_angular=5,
                                                       zetas={1},
-                                                      cutoff_radius=6.0,
+                                                      cutoff_radius=config["cutoff_radius"],
                                                       elements=frozenset((1, 6, 8, 30)),
                                                       centered=False,
                                                       crossterms=False,
@@ -109,15 +125,18 @@ def run_train(config):
     ]
 
     model = schnetpack.atomistic.model.AtomisticModel(representation, output_modules)
-    #model = spk.AtomisticModel(representation=representation, output_modules=output_modules)
-
+    # for multi GPU
+    if n_gpus > 1:
+        model = torch.nn.DataParallel(model)
+        
     # build optimizer
     optimizer = Adam(params=model.parameters(), lr=config["lr"])
 
     # hooks
     logging.info("build trainer")
-    metrics = [MeanAbsoluteError(p, p) for p in properties]
-    hooks = [CSVHook(log_path=model_dir, metrics=metrics),
+    #metrics = [MeanAbsoluteError(p, p) for p in properties]
+    metrics = [RootMeanSquaredError(p, p) for p in properties]
+    hooks = [CSVHook(log_path=MODEL_DIR, metrics=metrics),
              ReduceLROnPlateauHook(
                  optimizer,
                  patience=20,
@@ -127,10 +146,12 @@ def run_train(config):
                  stop_after_min=False)]
 
     # trainer
-    loss = build_mse_loss(properties, loss_tradeoff=[0.001, 0.99])# for ["energy", "force"]
+    rho = config["rho"]
+    loss = build_mse_loss(properties, loss_tradeoff=[rho, 1 - rho])# for ["energy", "force"]
     #loss = build_mse_loss(properties, loss_tradeoff=[0.1]) # for ["energy"]
     trainer = Trainer(
-        model_dir,
+        MODEL_DIR,
+        train_type="train",
         model=model,
         hooks=hooks,
         loss_fn=loss,
@@ -141,48 +162,7 @@ def run_train(config):
 
     # run training
     logging.info("training")
-    trainer.train(device=device, n_epochs=50)
+    trainer.train(device=device, n_epochs=100)
 
-run_train({'n_layers': 2, 'n_hidden': 50, 'lr': 0.001, 'batch_size': 1})
-
-def ray_tune(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
-    config = {
-        #"l1": tune.sample_from(lambda _: 2 ** np.random.randint(2, 9)),
-        #"l2": tune.sample_from(lambda _: 2 ** np.random.randint(2, 9)),
-        "n_layers": tune.grid_search([2]),#, 3, 4, 5]),
-        "n_hidden": tune.grid_search([50]),#, 100, 150, 200]),
-        "lr": tune.grid_search([1e-4, 1e-3]),
-        "batch_size": tune.grid_search([1, 2]),#, 8, 16])
-    }
-    scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
-        max_t=max_num_epochs,
-        grace_period=1,
-        reduction_factor=2)
-    reporter = CLIReporter(
-        # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        parameter_columns=["lr", "batch_size", "n_layers", "n_hidden"],
-        #metric_columns=["loss", "accuracy", "training_iteration"])
-        metric_columns=["loss", "training_iteration"])
-    result = tune.run(
-        partial(run_train),
-        resources_per_trial={"cpu": 4, "gpu": gpus_per_trial},
-        config=config,
-        local_dir=model_dir,
-        num_samples=num_samples,
-        scheduler=scheduler,
-        progress_reporter=reporter,
-        checkpoint_at_end=True,
-    )
-
-    best_trial = result.get_best_trial("loss", "min", "last")
-    print("Best trial config: {}".format(best_trial.config))
-    print("Best trial final validation loss: {}".format(
-        best_trial.last_result["loss"]))
-    #print("Best trial final validation accuracy: {}".format(
-    #    best_trial.last_result["accuracy"]))
-
-
-#ray_tune(num_samples=4, max_num_epochs=10, gpus_per_trial=0.5)
-
+run_train({'n_layers': 3, 'n_hidden': 50, 'lr': 0.001, 'batch_size': 2, "cutoff_radius": 6.0, "rho": 0.1})
+logging.info("training was done")
