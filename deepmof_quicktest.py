@@ -17,7 +17,7 @@ import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Read MOF from cif file
-irmof1 = read("./IRMOFSeries/IRMOF10.cif")
+irmof1 = read("./IRMOFSeries/IRMOF1.cif")
 
 # Load model
 model = load_model("./NNPotentials/deepMOF_v1/best_model")
@@ -40,7 +40,7 @@ print("Initial Energy: ",ei)
 # Optimize MOF
 print("Optimizing...")
 dyn = LBFGS(irmof1)
-dyn.run(fmax=0.01)
+dyn.run(fmax=0.05)
 print("Optimization finished")
 
 # Calculate energy
