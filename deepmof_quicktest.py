@@ -6,22 +6,25 @@ from schnetpack import Properties
 from schnetpack.datasets import AtomsData
 from schnetpack.environment import AseEnvironmentProvider
 
-
 import  ase
 from ase import units
 from ase.io import read, write
 from ase.optimize import BFGS, LBFGS
 
+import torch
+
+# Get device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Read MOF from cif file
-irmof1 = read("./IRMOFSeries/IRMOF1.cif")
+irmof1 = read("./IRMOFSeries/IRMOF10.cif")
 
 # Load model
 model = load_model("./NNPotentials/deepMOF_v1/best_model")
 
 # Get calculator
 calculator = SpkCalculator(
-    model_schnet, device=device,
+    model, device=device,
     energy=Properties.energy,
     forces=Properties.forces,
     environment_provider=AseEnvironmentProvider(cutoff=6.0)
