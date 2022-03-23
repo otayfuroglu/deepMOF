@@ -31,6 +31,6 @@ cd /path/to/deepMOF
 python deepmof_quicktest.py
 ```
   
-You can choose another MOF in IRMOF series and perform molecular dynamic simulations, geometry optimization and others calculations at DFT level. The deepMOF model will provide with DFT-level calculations in other molecular dynamics software environments compatible whichi is the schnetpack.
+You can choose another MOF in IRMOF series and perform molecular dynamic simulations, geometry optimization and others calculations. The deepMOF model will provide with DFT-level calculations in other molecular dynamics software environments compatible whichi is the schnetpack.
 
 
