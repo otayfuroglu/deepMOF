@@ -23,13 +23,13 @@ pip install -r requirements.txt
 
 ## Quick test example
 
-The Quick test example scripts allows to load model and geometry optimization of IRMOF-1.
+The quick test example scripts allows to load model and geometry optimization of IRMOF-1.
 The can be started using:
 
 ```
 python deepmof_quicktest.py
 ```
   
-You can choose another MOF in IRMOF series and perform molecular dynamic simulations, geometry optimization and others calculations at DFT level.
+You can choose another MOF in IRMOF series and perform molecular dynamic simulations, geometry optimization and others calculations at DFT level. The deepMOF model will provide with DFT-level calculations in other molecular dynamics software environments compatible whichi is the schnetpack.
 
 
