@@ -13,7 +13,7 @@ Note: We recommend using a GPU for training the neural networks.
 
 ```
 git clone https://github.com/otayfuroglu/deepMOF.git
-cd deepMOF
+
 ```
 ## Install requirements
 ```
@@ -27,6 +27,7 @@ The quick test example scripts allows to load model and geometry optimization of
 The can be started using:
 
 ```
+cd /path/to/deepMOF
 python deepmof_quicktest.py
 ```
   
