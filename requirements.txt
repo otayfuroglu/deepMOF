@@ -1,0 +1,11 @@
+PyYAML
+--index-url https://pypi.python.org/simple/
+
+torch>=1.8.0
+numpy
+ase>=3.19
+h5py
+tqdm
+
+pre-commit
+black
