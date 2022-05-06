@@ -37,7 +37,7 @@ You can choose another MOF structures in IRMOF series and perform molecular dyna
 For the full reference, visit our related paper in PCCP, https://doi.org/10.1039/D1CP05973D
 
 If you are using deepMOF models in your research, please cite:
-Tayfuroglu O, Kocak A, Zorlu Y. A neural network potential for the IRMOF series and its application for thermal and mechanical behaviors, Phys. Chem. Chem. Phys., 2022, Advance Article, https://doi.org/10.1039/D1CP05973D
+Tayfuroglu O, Kocak A, Zorlu Y., A neural network potential for the IRMOF series and its application for thermal and mechanical behaviors, Phys. Chem. Chem. Phys., 2022, Advance Article, https://doi.org/10.1039/D1CP05973D
 
 
 ## References
