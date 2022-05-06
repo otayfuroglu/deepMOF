@@ -34,10 +34,10 @@ python deepmof_quicktest.py
 You can choose another MOF structures in IRMOF series and perform molecular dynamic simulations, geometry optimization and others calculations. The deepMOF model will provide with DFT-level calculations in other molecular dynamics software environments compatible whichi is the schnetpack.
 
 ## Documentation
-For the full reference, visit our related paper in chemrxiv, https://doi.org/10.26434/chemrxiv-2021-25n6h 
+For the full reference, visit our related paper in PCCP, https://doi.org/10.1039/D1CP05973D
 
 If you are using deepMOF models in your research, please cite:
-Tayfuroglu O, Kocak A, Zorlu Y. Development and Application of a Single Neural Network Potential for IRMOF-n (n=1,4,6,7,10). ChemRxiv. Cambridge: Cambridge Open Engage; 2021; This content is a preprint and has not been peer-reviewed.
+Tayfuroglu O, Kocak A, Zorlu Y. A neural network potential for the IRMOF series and its application for thermal and mechanical behaviors, Phys. Chem. Chem. Phys., 2022, Advance Article, https://doi.org/10.1039/D1CP05973D
 
 
 ## References
